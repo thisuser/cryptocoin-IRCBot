@@ -177,7 +177,3 @@ class bittrex(object):
     #address    required    the address where to send the funds.
     def withdraw(self, currency, quantity, address):
         return self.api_query('withdraw', {'currency': currency, 'quantity':quantity, 'address':address})
-
-
-#testAPI = bittrex('92f7a6b68b764ff5937a81d681d102cf')
-#themMarkets = testAPI.get_markets() #this is a json element
