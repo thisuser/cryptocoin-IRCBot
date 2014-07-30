@@ -1,0 +1,2 @@
+cryptocoin-IRCBot
+=================
