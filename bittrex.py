@@ -1,7 +1,11 @@
 #! /usr/bin/env python
+# updated for Python3.3 and newer
+# added get_market_summary(market) to public methods (was not in API example)
 
-import urllib
-import urllib2
+from urllib.parse import urlencode
+import certifi
+import pycurl
+from io import BytesIO
 import json
 import time
 from datetime import datetime
@@ -15,11 +19,18 @@ BOTH_ORDERBOOK = 'both'
 class bittrex(object):
     def __init__(self, APIKey):
         self.APIKey = APIKey
-        self.public_set = set(['getmarkets','getcurrencies','getticker','getmarketsummaries','getorderbook','getmarkethistory'])
+        self.public_set = set(['getmarkets','getcurrencies','getticker','getmarketsummaries', 'getmarketsummary','getorderbook','getmarkethistory'])
         self.market_set = set(['getopenorders','cancel','sellmarket','selllimit','buymarket','buylimit'])
         self.account_set = set(['getbalances','getbalance','getdepositaddress','withdraw'])
+        self.c = pycurl.Curl()
         
+    def close_curl(self):
+        self.c.close()
+        del self.c
+
     def api_query(self, method, req={}):
+        buffer = BytesIO()
+        self.c.setopt(pycurl.CAINFO, certifi.where())
         if method in self.public_set:
             request_url = 'https://bittrex.com/api/v1.1/public/' + method + '?'
         elif method in self.market_set:
@@ -27,13 +38,23 @@ class bittrex(object):
         elif method in self.account_set:
             request_url = 'https://bittrex.com/api/v1.1/account/' + method + '?'
         
-        request_url += urllib.urlencode(req)
+        request_url += urlencode(req)
             
         if method not in self.public_set:
             request_url += '&apikey=' + self.APIKey
-        
-        ret = urllib2.urlopen(urllib2.Request(request_url))
-        return json.loads(ret.read())
+
+
+        self.c.setopt(self.c.URL, request_url)
+        self.c.setopt(self.c.WRITEDATA, buffer)
+        self.c.perform()
+
+        temp = json.loads(buffer.getvalue().decode('utf-8'))
+        if not temp["success"]:
+            print("ERRROR: API request unsuccessful - {0}".format(str(temp["message"])))
+            return temp
+        else:
+            return temp
+
     
     #get_markets Used to get the open and available trading markets at Bittrex along with other meta data.
     #Parameters
@@ -59,6 +80,13 @@ class bittrex(object):
     #None
     def get_market_summaries(self):
         return self.api_query('getmarketsummaries')
+
+    #get_market_summary Used to get the last 24 hour summary for a given market
+    #Parameters
+    #parameter  required    description
+    #market     required    a string leteral for the market (ex: BTC-LION)
+    def get_market_summary(self, market):
+        return self.api_query('getmarketsummary', {'market': market})
     
     #Used to get retrieve the orderbook for a given market
     #Parameters
@@ -177,7 +205,3 @@ class bittrex(object):
     #address    required    the address where to send the funds.
     def withdraw(self, currency, quantity, address):
         return self.api_query('withdraw', {'currency': currency, 'quantity':quantity, 'address':address})
-
-
-#testAPI = bittrex('92f7a6b68b764ff5937a81d681d102cf')
-#themMarkets = testAPI.get_markets() #this is a json element
